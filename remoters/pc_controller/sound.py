@@ -1,4 +1,4 @@
-from pc_controller.keyboard1 import Keyboard
+from remoters.pc_controller.keyboard1 import Keyboard
 
 
 class Sound:

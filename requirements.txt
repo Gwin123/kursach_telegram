@@ -1,0 +1,14 @@
+opencv-python~=4.6.0.66
+numpy~=1.23.1
+PyAutoGUI~=0.9.53
+pyscreenshot~=3.0
+aiogram~=2.21
+scipy~=1.9.0
+WMI~=1.5.1
+keyboard~=0.13.5
+PyAudio~=0.2.12
+pyttsx3~=2.90
+psutil~=5.9.2
+pynput~=1.7.6
+pytest
+pytest_bdd
